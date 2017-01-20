@@ -1,0 +1,3 @@
+import gi
+
+print('asd')
