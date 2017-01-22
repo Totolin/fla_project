@@ -38,6 +38,12 @@ class Generator:
             "edges": []
         }
 
+    def get_graph(self):
+        return self.graph
+
+    def set_graph(self, gr):
+        self.graph = gr
+
     def add_node(self, node_name, double=False):
         self.graph['nodes']['double' if double else 'single'].append(node_name)
 
@@ -47,6 +53,14 @@ class Generator:
             "to": node_to,
             "value": node_value
         })
+
+    def delete_node(self, node_name):
+        print(node_name)
+        self.graph['nodes']['single'] = list(filter(lambda x: x != node_name, self.graph['nodes']['single']))
+        self.graph['nodes']['double'] = list(filter(lambda x: x != node_name, self.graph['nodes']['double']))
+        if self.graph['nodes']['start'] == node_name:
+            self.graph['nodes']['start'] = None
+        self.graph['edges'] = list(filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
 
     def get_dotcode(self):
 
