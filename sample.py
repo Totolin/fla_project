@@ -7,9 +7,18 @@ from gi.repository import Gtk
 gi.require_version('Gtk', '3.0')
 
 
-class MyDotWindow(xdot.DotWindow):
+class MyDotWidget(xdot.DotWidget):
     def __init__(self):
-        xdot.DotWindow.__init__(self)
+        xdot.DotWidget.__init__(self)
+
+    def load_graph(self):
+        dotcode = self.generator.get_dotcode()
+        self.set_dotcode(dotcode)
+
+
+class MyDotWindow(xdot.DotWindow):
+    def __init__(self, widget):
+        xdot.DotWindow.__init__(self, widget)
         self.dotwidget.connect('clicked', self.on_url_clicked)
         self.dotwidget.on_click = self.on_click
 
@@ -29,34 +38,47 @@ class MyDotWindow(xdot.DotWindow):
         dialog.run()
         return True
 
+    def add_edge(self, action):
+        print(action)
 
-dotcode = """
-digraph finite_state_machine {
-	rankdir=LR;
-	size="8,5"
-	node [shape = doublecircle]; LR_0 LR_3 LR_4 LR_8;
-	node [shape = circle];
-	LR_0 -> LR_2 [ label = "SS(B)" ];
-	LR_0 -> LR_1 [ label = "SS(S)" ];
-	LR_1 -> LR_3 [ label = "S($end)" ];
-	LR_2 -> LR_6 [ label = "SS(b)" ];
-	LR_2 -> LR_5 [ label = "SS(a)" ];
-	LR_2 -> LR_4 [ label = "S(A)" ];
-	LR_5 -> LR_7 [ label = "S(b)" ];
-	LR_5 -> LR_5 [ label = "S(a)" ];
-	LR_6 -> LR_6 [ label = "S(b)" ];
-	LR_6 -> LR_5 [ label = "S(a)" ];
-	LR_7 -> LR_8 [ label = "S(b)" ];
-	LR_7 -> LR_5 [ label = "S(a)" ];
-	LR_8 -> LR_6 [ label = "S(b)" ];
-	LR_8 -> LR_5 [ label = "S(a)" ];
-}
-"""
+    def add_node(self, action):
+        # Create a dialog window
+        dlg = Gtk.MessageDialog(parent=self,
+                                type=Gtk.MessageType.OTHER,
+                                message_format="",
+                                title="Enter node name",
+                                buttons=Gtk.ButtonsType.OK)
+
+        # Create the actual text input entry
+        entry = Gtk.Entry()
+        entry.show()
+
+        # Create a checkbox
+        check = Gtk.CheckButton(label="Double circle")
+        check.show()
+
+        # Append items to dialog window
+        dlg.vbox.pack_end(entry, expand=True, fill=True, padding=0)
+        dlg.vbox.pack_end(check, expand=True, fill=True, padding=0)
+
+        # Grab value once window is closed
+        response = dlg.run()
+        text = entry.get_text()
+        is_double = check.get_active()
+
+        # On continue, destroy it
+        dlg.destroy()
+
+        # Create node if all went well
+        if response == Gtk.ResponseType.OK and text:
+            self.dotwidget.generator.add_node(text, is_double)
+            self.dotwidget.load_graph()
 
 
 def main():
-    window = MyDotWindow()
-    window.set_dotcode(dotcode)
+    widget = MyDotWidget()
+    window = MyDotWindow(widget)
+    window.dotwidget.load_graph()
     window.connect('delete-event', Gtk.main_quit)
     Gtk.main()
 

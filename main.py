@@ -1,3 +1,0 @@
-import gi
-
-print('asd')

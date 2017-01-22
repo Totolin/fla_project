@@ -1,3 +1,4 @@
 __all__ = ['actions', 'animation', 'colors', 'elements', 'pen', 'window']
 
-from .window import DotWidget, DotWindow
+from .window import DotWindow
+from .widget import DotWidget
