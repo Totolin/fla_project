@@ -45,11 +45,15 @@ class MyDotWindow(xdot.DotWindow):
                 self.dotwidget.generator.delete_edge(name)
             if type(element) is xdot.ui.elements.Node:
                 self.dotwidget.generator.delete_node(name)
-            self.dotwidget.load_graph()
+
+        # Reload graph after each click
+        self.dotwidget.load_graph()
 
     def reset_actions(self):
         self.toggle_edge = False
         self.toggle_delete = False
+        self.toggle_start = False
+        self.toggle_end = False
         self.edge_buffer = None
         self.actiongroup.get_action('Add Edge').set_active(False)
         self.actiongroup.get_action('Delete').set_active(False)

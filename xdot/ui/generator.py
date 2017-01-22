@@ -55,15 +55,50 @@ class Generator:
         })
 
     def delete_node(self, node_name):
-        print(node_name)
         self.graph['nodes']['single'] = list(filter(lambda x: x != node_name, self.graph['nodes']['single']))
         self.graph['nodes']['double'] = list(filter(lambda x: x != node_name, self.graph['nodes']['double']))
         if self.graph['nodes']['start'] == node_name:
             self.graph['nodes']['start'] = None
         self.graph['edges'] = list(filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
 
+    def delete_edge(self, edge_name):
+        self.graph['edges'] = list(
+            filter(lambda x: x['value'] != edge_name, self.graph['edges'])
+        )
+
+    def calculate_start(self):
+        # Start with no starting node
+        start = None
+
+        # Create a list of all nodes
+        nodes = list(self.graph['nodes']['single'] + self.graph['nodes']['double'])
+
+        # Also add current starting node to the list
+        if self.graph['nodes']['start']:
+            nodes = [self.graph['nodes']['start']] + nodes
+
+        for edge in self.graph['edges']:
+            name = edge['to']
+            if name in nodes and name != edge['from']:
+                nodes.remove(name)
+
+        if nodes:
+            start = nodes[0]
+
+        if start:
+            # We found a starting node
+            self.graph['nodes']['start'] = start
+
+            # Remove it from other lists
+            if start in self.graph['nodes']['single']:
+                self.graph['nodes']['single'].remove(start)
+            if start in self.graph['nodes']['double']:
+                self.graph['nodes']['double'].remove(start)
 
     def get_dotcode(self):
+
+        # Calculate starting node
+        self.calculate_start()
 
         # Set all default properties of the graph
         base = """ """
@@ -83,7 +118,10 @@ class Generator:
             single_nodes += node + ' '
         single_nodes = single_nodes[:-1]
 
-        # Add them to the base string
+        # Add doubles and singles to the base string
+        if self.graph['nodes']['start']:
+            base += "\tnode [shape = Mcircle]; %s;\n" % self.graph['nodes']['start']
+
         if double_nodes:
             base += "\tnode [shape = doublecircle]; %s;\n" % double_nodes
 
@@ -96,4 +134,5 @@ class Generator:
 
         base += "\n}"
 
+        print(base)
         return base

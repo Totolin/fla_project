@@ -63,7 +63,7 @@ class DotWindow(Gtk.Window):
     </ui>
     '''
 
-    base_title = 'Dot Viewer'
+    base_title = 'FLA Project'
 
     def __init__(self, widget, width=700, height=512):
         Gtk.Window.__init__(self)
