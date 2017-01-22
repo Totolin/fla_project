@@ -62,6 +62,7 @@ class Generator:
             self.graph['nodes']['start'] = None
         self.graph['edges'] = list(filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
 
+
     def get_dotcode(self):
 
         # Set all default properties of the graph
