@@ -47,11 +47,11 @@ class Generator:
     def add_node(self, node_name, double=False):
         self.graph['nodes']['double' if double else 'single'].append(node_name)
 
-    def add_edge(self, node_from, node_to, node_value):
+    def add_edge(self, node_from, node_to, edge_value):
         self.graph['edges'].append({
             "from": node_from,
             "to": node_to,
-            "value": node_value
+            "value": edge_value
         })
 
     def delete_node(self, node_name):
@@ -59,7 +59,8 @@ class Generator:
         self.graph['nodes']['double'] = list(filter(lambda x: x != node_name, self.graph['nodes']['double']))
         if self.graph['nodes']['start'] == node_name:
             self.graph['nodes']['start'] = None
-        self.graph['edges'] = list(filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
+        self.graph['edges'] = list(
+            filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
 
     def delete_edge(self, edge_name):
         self.graph['edges'] = list(
@@ -94,6 +95,58 @@ class Generator:
                 self.graph['nodes']['single'].remove(start)
             if start in self.graph['nodes']['double']:
                 self.graph['nodes']['double'].remove(start)
+
+    def check_string(self, query):
+        current_state = self.graph['nodes']['start']
+        edges = self.graph['edges']
+
+        if not current_state:
+            return False
+
+        for ch in query:
+            found = False
+            for edge in list(filter(lambda x: x['from'] == current_state, edges)):
+                if ch in self.get_values_from_edge(edge):
+                    current_state = edge['to']
+                    found = True
+
+            if not found:
+                return False
+
+        if current_state in self.graph['nodes']['double']:
+            return True
+
+        return False
+
+    def get_values_from_edge(self, edge):
+        # Remove all spaces from value
+        values_string = "".join(edge['value'].split())
+
+        # Return array of values
+        return values_string.split(',')
+
+    def is_empty(self):
+        return not self.graph['nodes']['start']
+
+    def is_deterministic(self):
+        all_nodes = list([self.graph['nodes']['start']] + \
+                         self.graph['nodes']['single'] + \
+                         self.graph['nodes']['double'])
+
+        for node in all_nodes:
+            # Get all edges from this node
+            out_edges = [edge for edge in self.graph['edges'] if edge['from'] == node]
+
+            # Get all values from edges
+            edge_values = []
+            for edge in out_edges:
+                edge_values += self.get_values_from_edge(edge)
+
+            if len(edge_values) != len(set(edge_values)):
+                # Duplicates found
+                return False
+
+        return True
 
     def get_dotcode(self):
 
@@ -134,5 +187,4 @@ class Generator:
 
         base += "\n}"
 
-        print(base)
         return base

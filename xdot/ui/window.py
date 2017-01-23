@@ -46,7 +46,6 @@ class DotWindow(Gtk.Window):
     <ui>
         <toolbar name="ToolBar">
             <toolitem action="Open"/>
-            <toolitem action="Reload"/>
             <toolitem action="Save"/>
             <separator/>
             <toolitem action="Add Node"/>
@@ -58,6 +57,7 @@ class DotWindow(Gtk.Window):
             <toolitem action="ZoomFit"/>
             <toolitem action="Zoom100"/>
             <separator/>
+            <toolitem action="Check"/>
             <toolitem name="Find" action="Find"/>
         </toolbar>
     </ui>
@@ -65,7 +65,7 @@ class DotWindow(Gtk.Window):
 
     base_title = 'FLA Project'
 
-    def __init__(self, widget, width=700, height=512):
+    def __init__(self, widget, width=780, height=512):
         Gtk.Window.__init__(self)
 
         self.graph = Graph()
@@ -94,7 +94,7 @@ class DotWindow(Gtk.Window):
         # Create actions
         actiongroup.add_actions((
             ('Open', Gtk.STOCK_OPEN, None, None, None, self.on_open),
-            ('Reload', Gtk.STOCK_REFRESH, None, None, None, self.on_reload),
+            ('Check', Gtk.STOCK_HELP, None, None, None, self.on_check_deterministic),
             ('Save', Gtk.STOCK_FLOPPY, None, None, None, self.on_save),
             ('Add Node', Gtk.STOCK_ADD, None, None, None, self.add_node),
             ('ZoomIn', Gtk.STOCK_ZOOM_IN, None, None, None, self.dotwidget.on_zoom_in),
@@ -118,10 +118,14 @@ class DotWindow(Gtk.Window):
         # Add a UI descrption
         uimanager.add_ui_from_string(self.ui)
 
+        # Add an info label
+        label = Gtk.Label()
+        vbox.pack_end(label, False, False, 0)
+        self.info_label = label
+
         # Create a Toolbar
         toolbar = uimanager.get_widget('/ToolBar')
         vbox.pack_start(toolbar, False, False, 0)
-
         vbox.pack_start(self.dotwidget, True, True, 0)
 
         self.last_open_dir = "."
@@ -130,7 +134,8 @@ class DotWindow(Gtk.Window):
 
         # Add Find text search
         find_toolitem = uimanager.get_widget('/ToolBar/Find')
-        self.textentry = Gtk.Entry(max_length=20)
+        self.textentry = Gtk.Entry(max_length=40)
+        self.textentry.set_width_chars(40)
         self.textentry.set_icon_from_stock(0, Gtk.STOCK_FIND)
         find_toolitem.add(self.textentry)
 
@@ -159,18 +164,6 @@ class DotWindow(Gtk.Window):
         found_items = self.find_text(entry_text)
         dot_widget.set_highlight(found_items, search=True)
 
-    def textentry_activate(self, widget, entry):
-        entry_text = entry.get_text()
-        dot_widget = self.dotwidget
-        if not entry_text:
-            dot_widget.set_highlight(None, search=True)
-            return
-
-        found_items = self.find_text(entry_text)
-        dot_widget.set_highlight(found_items, search=True)
-        if (len(found_items) == 1):
-            dot_widget.animate_to(found_items[0].x, found_items[0].y)
-
     def set_filter(self, filter):
         self.dotwidget.set_filter(filter)
 
@@ -189,9 +182,6 @@ class DotWindow(Gtk.Window):
             self.set_title(self.base_title)
         else:
             self.set_title(os.path.basename(filename) + ' - ' + self.base_title)
-
-    def on_reload(self, action):
-        self.dotwidget.reload()
 
     def error_dialog(self, message):
         dlg = Gtk.MessageDialog(parent=self,

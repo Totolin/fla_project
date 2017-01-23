@@ -52,8 +52,6 @@ class MyDotWindow(xdot.DotWindow):
     def reset_actions(self):
         self.toggle_edge = False
         self.toggle_delete = False
-        self.toggle_start = False
-        self.toggle_end = False
         self.edge_buffer = None
         self.actiongroup.get_action('Add Edge').set_active(False)
         self.actiongroup.get_action('Delete').set_active(False)
@@ -73,6 +71,17 @@ class MyDotWindow(xdot.DotWindow):
                 json.dump(self.dotwidget.generator.get_graph(), fp)
         except IOError as ex:
             self.error_dialog(str(ex))
+
+    def on_check_deterministic(self, action):
+        if self.dotwidget.generator.is_empty():
+            self.info_label.set_text('Automaton is empty!')
+            return
+
+        is_deterministic = self.dotwidget.generator.is_deterministic()
+        if is_deterministic:
+            self.info_label.set_text('Current finite automaton is Deterministic')
+        else:
+            self.info_label.set_text('Current finite automaton is Non-Deterministic')
 
     def on_save(self, action):
         chooser = Gtk.FileChooserDialog(parent=self,
@@ -126,6 +135,28 @@ class MyDotWindow(xdot.DotWindow):
             fp.close()
         except IOError as ex:
             self.error_dialog(str(ex))
+
+    def textentry_activate(self, widget, entry):
+        # Get text from input (query string)
+        text = entry.get_text()
+
+        # Special cases
+        if self.dotwidget.generator.is_empty():
+            self.info_label.set_text('Automaton is empty!')
+            return
+
+        if not self.dotwidget.generator.is_deterministic:
+            self.info_label.set_text('Automaton is not deterministic!')
+            return
+
+        # Ask generator if query is True
+        is_valid = self.dotwidget.generator.check_string(text)
+
+        # Display message
+        if is_valid:
+            self.info_label.set_text('String is accepted by current DFA!')
+        else:
+            self.info_label.set_text('String is NOT accepted by current DFA!')
 
     def delete_element(self, action):
         self.toggle_delete = action.get_active()
