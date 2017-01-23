@@ -1,12 +1,16 @@
 import gi
 import os
 import re
+import json
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('PangoCairo', '1.0')
 
 from gi.repository import Gtk
 from .elements import Graph
+from .elements import Edge
+from .elements import Node
+from .elements import TextShape
 
 
 class FindMenuToolAction(Gtk.Action):
@@ -52,6 +56,9 @@ class DotWindow(Gtk.Window):
             <toolitem action="Add Edge"/>
             <toolitem action="Delete"/>
             <separator/>
+            <toolitem action="Start"/>
+            <toolitem action="End"/>
+            <separator/>
             <toolitem action="ZoomIn"/>
             <toolitem action="ZoomOut"/>
             <toolitem action="ZoomFit"/>
@@ -93,23 +100,25 @@ class DotWindow(Gtk.Window):
 
         # Create actions
         actiongroup.add_actions((
-            ('Open', Gtk.STOCK_OPEN, None, None, None, self.on_open),
-            ('Check', Gtk.STOCK_HELP, None, None, None, self.on_check_deterministic),
-            ('Save', Gtk.STOCK_FLOPPY, None, None, None, self.on_save),
-            ('Add Node', Gtk.STOCK_ADD, None, None, None, self.add_node),
-            ('ZoomIn', Gtk.STOCK_ZOOM_IN, None, None, None, self.dotwidget.on_zoom_in),
-            ('ZoomOut', Gtk.STOCK_ZOOM_OUT, None, None, None, self.dotwidget.on_zoom_out),
-            ('ZoomFit', Gtk.STOCK_ZOOM_FIT, None, None, None, self.dotwidget.on_zoom_fit),
-            ('Zoom100', Gtk.STOCK_ZOOM_100, None, None, None, self.dotwidget.on_zoom_100),
+            ('Open', Gtk.STOCK_OPEN, None, None, 'Open file', self.on_open),
+            ('Check', Gtk.STOCK_HELP, None, None, 'Check DFA', self.on_check_deterministic),
+            ('Save', Gtk.STOCK_FLOPPY, None, None, 'Save file', self.on_save),
+            ('Add Node', Gtk.STOCK_ADD, None, None, 'Add node', self.add_node),
+            ('ZoomIn', Gtk.STOCK_ZOOM_IN, None, None, 'Zoom in', self.dotwidget.on_zoom_in),
+            ('ZoomOut', Gtk.STOCK_ZOOM_OUT, None, None, 'Zoom out', self.dotwidget.on_zoom_out),
+            ('ZoomFit', Gtk.STOCK_ZOOM_FIT, None, None, 'Zoom fit', self.dotwidget.on_zoom_fit),
+            ('Zoom100', Gtk.STOCK_ZOOM_100, None, None, 'Zoom 100', self.dotwidget.on_zoom_100),
         ))
 
         actiongroup.add_toggle_actions((
-            ('Add Edge', Gtk.STOCK_REDO, None, None, None, self.add_edge),
-            ('Delete', Gtk.STOCK_NO, None, None, None, self.delete_element),
+            ('Add Edge', Gtk.STOCK_REDO, None, None, 'Add edge', self.add_edge),
+            ('Delete', Gtk.STOCK_NO, None, None, 'Delete element', self.delete_element),
+            ('Start', Gtk.STOCK_NO, None, None, 'Set node as start', self.set_start),
+            ('End', Gtk.STOCK_NO, None, None, 'Set node as final', self.set_final),
         ))
 
         find_action = FindMenuToolAction("Find", None,
-                                         "Find a node by name", None)
+                                         "Check string in DFA", None)
         actiongroup.add_action(find_action)
 
         # Add the actiongroup to the uimanager
@@ -140,10 +149,253 @@ class DotWindow(Gtk.Window):
         find_toolitem.add(self.textentry)
 
         self.textentry.set_activates_default(True)
-        self.textentry.connect("activate", self.textentry_activate, self.textentry);
-        self.textentry.connect("changed", self.textentry_changed, self.textentry);
+        self.textentry.connect("activate", self.textentry_activate, self.textentry)
+        self.textentry.connect("changed", self.textentry_changed, self.textentry)
 
         self.show_all()
+
+        self.dotwidget.on_click = self.on_click
+        self.toggle_edge = False
+        self.toggle_delete = False
+        self.toggle_start = False
+        self.toggle_end = False
+        self.edge_buffer = None
+
+    def on_click(self, element, event):
+        if not self.get_name(element):
+            return
+
+        if self.toggle_edge:
+            # We are trying to add a new edge
+            if not self.edge_buffer:
+                # We have only one node selected
+                self.edge_buffer = self.get_name(element)
+            else:
+                # We need to add a new edge now
+                self.get_edge_name(self.get_name(element), self.edge_buffer)
+
+            # Reload graph
+            self.dotwidget.load_graph()
+
+        if self.toggle_delete:
+            if type(element) is Edge:
+                node_from = self.get_name(element.get_src())
+                node_to = self.get_name(element.get_dst())
+                self.dotwidget.generator.delete_edge(node_from, node_to)
+            if type(element) is Node:
+                name = self.get_name(element)
+                self.dotwidget.generator.delete_node(name)
+
+            # Reload graph
+            self.dotwidget.load_graph()
+
+        if self.toggle_start:
+            if type(element) is Node:
+                # Get element name
+                name = self.get_name(element)
+                self.dotwidget.generator.set_start(name)
+
+                # Reload graph
+                self.dotwidget.load_graph()
+
+        if self.toggle_end:
+            if type(element) is Node:
+                # Get element name
+                name = self.get_name(element)
+                self.dotwidget.generator.set_final(name)
+
+                # Reload graph
+                self.dotwidget.load_graph()
+
+    def reset_actions(self):
+        self.toggle_edge = False
+        self.toggle_delete = False
+        self.toggle_start = False
+        self.toggle_end = False
+        self.edge_buffer = None
+        self.actiongroup.get_action('Add Edge').set_active(False)
+        self.actiongroup.get_action('Delete').set_active(False)
+        self.actiongroup.get_action('Start').set_active(False)
+        self.actiongroup.get_action('End').set_active(False)
+
+    def get_name(self, element):
+        if not element:
+            return None
+        name = None
+        for shape in element.shapes:
+            if type(shape) is TextShape:
+                name = shape.get_text()
+        return name
+
+    def save_file(self, filename):
+        try:
+            with open(filename, 'w') as fp:
+                json.dump(self.dotwidget.generator.get_graph(), fp)
+        except IOError as ex:
+            self.error_dialog(str(ex))
+
+    def on_check_deterministic(self, action):
+        if self.dotwidget.generator.is_empty():
+            self.info_label.set_text('Automaton is empty!')
+            return
+
+        is_deterministic = self.dotwidget.generator.is_deterministic()
+        if is_deterministic:
+            self.info_label.set_text('Current finite automaton is Deterministic')
+        else:
+            self.info_label.set_text('Current finite automaton is Non-Deterministic')
+
+    def on_save(self, action):
+        chooser = Gtk.FileChooserDialog(parent=self,
+                                        title="Save graph to file",
+                                        action=Gtk.FileChooserAction.SAVE,
+                                        buttons=(Gtk.STOCK_CANCEL,
+                                                 Gtk.ResponseType.CANCEL,
+                                                 Gtk.STOCK_SAVE,
+                                                 Gtk.ResponseType.OK))
+        chooser.set_default_response(Gtk.ResponseType.OK)
+        chooser.set_current_folder(self.last_open_dir)
+        if chooser.run() == Gtk.ResponseType.OK:
+            filename = chooser.get_filename()
+            print(filename)
+            self.save_file(filename)
+            chooser.destroy()
+        else:
+            chooser.destroy()
+
+    def on_open(self, action):
+        chooser = Gtk.FileChooserDialog(parent=self,
+                                        title="Open json graph file",
+                                        action=Gtk.FileChooserAction.OPEN,
+                                        buttons=(Gtk.STOCK_CANCEL,
+                                                 Gtk.ResponseType.CANCEL,
+                                                 Gtk.STOCK_OPEN,
+                                                 Gtk.ResponseType.OK))
+        chooser.set_default_response(Gtk.ResponseType.OK)
+        chooser.set_current_folder(self.last_open_dir)
+        filter = Gtk.FileFilter()
+        filter.set_name("JSON graph file")
+        filter.add_pattern("*.json")
+        chooser.add_filter(filter)
+        filter = Gtk.FileFilter()
+        filter.set_name("All files")
+        filter.add_pattern("*")
+        chooser.add_filter(filter)
+        if chooser.run() == Gtk.ResponseType.OK:
+            filename = chooser.get_filename()
+            self.last_open_dir = chooser.get_current_folder()
+            chooser.destroy()
+            self.open_file(filename)
+        else:
+            chooser.destroy()
+
+    def open_file(self, filename):
+        try:
+            fp = open(filename, 'rt')
+            self.dotwidget.generator.set_graph(json.loads(fp.read()))
+            self.dotwidget.load_graph()
+            fp.close()
+        except IOError as ex:
+            self.error_dialog(str(ex))
+
+    def textentry_activate(self, widget, entry):
+        # Get text from input (query string)
+        text = entry.get_text()
+
+        # Special cases
+        if self.dotwidget.generator.is_empty():
+            self.info_label.set_text('Automaton is empty!')
+            return
+
+        if not self.dotwidget.generator.is_deterministic:
+            self.info_label.set_text('Automaton is not deterministic!')
+            return
+
+        # Ask generator if query is True
+        is_valid = self.dotwidget.generator.check_string(text)
+
+        # Display message
+        if is_valid:
+            self.info_label.set_text('String is accepted by current DFA!')
+        else:
+            self.info_label.set_text('String is NOT accepted by current DFA!')
+
+    def set_start(self, action):
+        self.toggle_start = action.get_active()
+
+    def set_final(self,action):
+        self.toggle_end = action.get_active()
+
+    def delete_element(self, action):
+        self.toggle_delete = action.get_active()
+
+    def get_edge_name(self, node_from, node_to):
+        # Create a dialog window
+        dlg = Gtk.MessageDialog(parent=self,
+                                type=Gtk.MessageType.OTHER,
+                                message_format="",
+                                title="Enter edge name",
+                                buttons=Gtk.ButtonsType.OK)
+
+        # Create the actual text input entry
+        entry = Gtk.Entry()
+        entry.show()
+
+        # Append items to dialog window
+        dlg.vbox.pack_end(entry, expand=True, fill=True, padding=0)
+
+        # Grab value once window is closed
+        response = dlg.run()
+        text = entry.get_text()
+
+        # On continue, destroy it
+        dlg.destroy()
+
+        # Create node if all went well
+        if response == Gtk.ResponseType.OK and text:
+            self.dotwidget.generator.add_edge(node_to, node_from, text)
+            self.dotwidget.load_graph()
+
+        self.reset_actions()
+
+    def add_edge(self, action):
+        self.toggle_edge = action.get_active()
+
+    def add_node(self, action):
+        # Reset all other actions
+        self.reset_actions()
+
+        # Create a dialog window
+        dlg = Gtk.MessageDialog(parent=self,
+                                type=Gtk.MessageType.OTHER,
+                                message_format="",
+                                title="Enter state name",
+                                buttons=Gtk.ButtonsType.OK)
+
+        # Create the actual text input entry
+        entry = Gtk.Entry()
+        entry.show()
+
+        # Create a checkbox
+        check = Gtk.CheckButton(label="Final state")
+        check.show()
+
+        # Append items to dialog window
+        dlg.vbox.pack_end(entry, expand=True, fill=True, padding=0)
+        dlg.vbox.pack_end(check, expand=True, fill=True, padding=0)
+
+        # Grab value once window is closed
+        response = dlg.run()
+        text = entry.get_text()
+        is_double = check.get_active()
+
+        # On continue, destroy it
+        dlg.destroy()
+
+        # Create node if all went well
+        if response == Gtk.ResponseType.OK and text:
+            self.dotwidget.generator.add_node(text, is_double)
+            self.dotwidget.load_graph()
 
     def find_text(self, entry_text):
         found_items = []

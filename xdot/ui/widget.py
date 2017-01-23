@@ -122,11 +122,15 @@ class DotWidget(Gtk.DrawingArea):
             self.openfilename = filename
             return True
 
+    def load_graph(self):
+        dotcode = self.generator.get_dotcode()
+        self.set_dotcode(dotcode)
+        self.zoom_image(self.zoom_ratio, center=True)
+
     def set_xdotcode(self, xdotcode):
         assert isinstance(xdotcode, bytes)
         parser = XDotParser(xdotcode)
         self.graph = parser.parse()
-        self.zoom_image(self.zoom_ratio, center=True)
 
     def reload(self):
         if self.openfilename is not None:
@@ -374,13 +378,10 @@ class DotWidget(Gtk.DrawingArea):
                 return True
 
             if event.button == 1:
-                url = self.get_url(x, y)
-                if url is not None:
-                    self.emit('clicked', url.url, event)
-                else:
-                    jump = self.get_jump(x, y)
-                    if jump is not None:
-                        self.animate_to(jump.x, jump.y)
+                jump = self.get_jump(x, y)
+                if jump is not None:
+                    #self.animate_to(jump.x, jump.y)
+                    pass
 
                 return True
 

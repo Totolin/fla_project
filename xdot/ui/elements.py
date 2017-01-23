@@ -412,6 +412,12 @@ class Edge(Element):
 
     RADIUS = 10
 
+    def get_src(self):
+        return self.src
+
+    def get_dst(self):
+        return self.dst
+
     def is_inside_begin(self, x, y):
         return square_distance(x, y, *self.points[0]) <= self.RADIUS*self.RADIUS
 

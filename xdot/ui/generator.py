@@ -62,9 +62,9 @@ class Generator:
         self.graph['edges'] = list(
             filter(lambda x: x['from'] != node_name and x['to'] != node_name, self.graph['edges']))
 
-    def delete_edge(self, edge_name):
+    def delete_edge(self, node_from, node_to):
         self.graph['edges'] = list(
-            filter(lambda x: x['value'] != edge_name, self.graph['edges'])
+            filter(lambda x: not (x['from'] == node_from and x['to'] == node_to), self.graph['edges'])
         )
 
     def calculate_start(self):
