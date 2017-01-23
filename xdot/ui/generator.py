@@ -44,8 +44,8 @@ class Generator:
     def set_graph(self, gr):
         self.graph = gr
 
-    def add_node(self, node_name, double=False):
-        self.graph['nodes']['double' if double else 'single'].append(node_name)
+    def add_node(self, node_name):
+        self.graph['nodes']['single'].append(node_name)
 
     def add_edge(self, node_from, node_to, edge_value):
         self.graph['edges'].append({
@@ -95,6 +95,18 @@ class Generator:
                 self.graph['nodes']['single'].remove(start)
             if start in self.graph['nodes']['double']:
                 self.graph['nodes']['double'].remove(start)
+
+    def set_start(self, node_name):
+        self.graph['nodes']['start'] = node_name
+
+    def set_final(self, node_name):
+        if node_name in self.graph['nodes']['double']:
+            self.graph['nodes']['double'].remove(node_name)
+
+        if node_name in self.graph['nodes']['single']:
+            self.graph['nodes']['single'].remove(node_name)
+
+        self.graph['nodes']['double'].append(node_name)
 
     def check_string(self, query):
         current_state = self.graph['nodes']['start']
@@ -150,9 +162,6 @@ class Generator:
 
     def get_dotcode(self):
 
-        # Calculate starting node
-        self.calculate_start()
-
         # Set all default properties of the graph
         base = """ """
         base += "digraph finite_state_machine {\n"
@@ -173,13 +182,16 @@ class Generator:
 
         # Add doubles and singles to the base string
         if self.graph['nodes']['start']:
-            base += "\tnode [shape = Mcircle]; %s;\n" % self.graph['nodes']['start']
+            if self.graph['nodes']['start'] in self.graph['nodes']['double']:
+                base += "\tnode [style = filled shape = doublecircle]; %s;\n" % self.graph['nodes']['start']
+            else:
+                base += "\tnode [style = filled shape = circle]; %s;\n" % self.graph['nodes']['start']
 
         if double_nodes:
-            base += "\tnode [shape = doublecircle]; %s;\n" % double_nodes
+            base += "\tnode [shape = doublecircle style = solid]; %s;\n" % double_nodes
 
         if single_nodes:
-            base += "\tnode [shape = circle]; %s;\n" % single_nodes
+            base += "\tnode [shape = circle style = solid]; %s;\n" % single_nodes
 
         # Add all edges to the graph string
         for edge in self.graph['edges']:

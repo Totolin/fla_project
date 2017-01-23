@@ -72,7 +72,7 @@ class DotWindow(Gtk.Window):
 
     base_title = 'FLA Project'
 
-    def __init__(self, widget, width=780, height=512):
+    def __init__(self, widget, width=850, height=512):
         Gtk.Window.__init__(self)
 
         self.graph = Graph()
@@ -90,7 +90,7 @@ class DotWindow(Gtk.Window):
         # Create a UIManager instance
         uimanager = self.uimanager = Gtk.UIManager()
 
-        # Add the accelerator group to the toplevel window
+        # Add the accelerator group to the top-level window
         accelgroup = uimanager.get_accel_group()
         window.add_accel_group(accelgroup)
 
@@ -113,8 +113,8 @@ class DotWindow(Gtk.Window):
         actiongroup.add_toggle_actions((
             ('Add Edge', Gtk.STOCK_REDO, None, None, 'Add edge', self.add_edge),
             ('Delete', Gtk.STOCK_NO, None, None, 'Delete element', self.delete_element),
-            ('Start', Gtk.STOCK_NO, None, None, 'Set node as start', self.set_start),
-            ('End', Gtk.STOCK_NO, None, None, 'Set node as final', self.set_final),
+            ('Start', Gtk.STOCK_GOTO_LAST, None, None, 'Set node as start', self.set_start),
+            ('End', Gtk.STOCK_MEDIA_STOP, None, None, 'Set node as final', self.set_final),
         ))
 
         find_action = FindMenuToolAction("Find", None,
@@ -150,8 +150,6 @@ class DotWindow(Gtk.Window):
 
         self.textentry.set_activates_default(True)
         self.textentry.connect("activate", self.textentry_activate, self.textentry)
-        self.textentry.connect("changed", self.textentry_changed, self.textentry)
-
         self.show_all()
 
         self.dotwidget.on_click = self.on_click
@@ -174,8 +172,8 @@ class DotWindow(Gtk.Window):
                 # We need to add a new edge now
                 self.get_edge_name(self.get_name(element), self.edge_buffer)
 
-            # Reload graph
-            self.dotwidget.load_graph()
+                # Reload graph
+                self.dotwidget.load_graph()
 
         if self.toggle_delete:
             if type(element) is Edge:
@@ -198,6 +196,9 @@ class DotWindow(Gtk.Window):
                 # Reload graph
                 self.dotwidget.load_graph()
 
+                # Reset toolbar
+                self.reset_actions()
+
         if self.toggle_end:
             if type(element) is Node:
                 # Get element name
@@ -206,6 +207,9 @@ class DotWindow(Gtk.Window):
 
                 # Reload graph
                 self.dotwidget.load_graph()
+
+                # Reset toolbar
+                self.reset_actions()
 
     def reset_actions(self):
         self.toggle_edge = False
@@ -236,7 +240,7 @@ class DotWindow(Gtk.Window):
 
     def on_check_deterministic(self, action):
         if self.dotwidget.generator.is_empty():
-            self.info_label.set_text('Automaton is empty!')
+            self.info_label.set_text('Automaton is empty or has no start state!')
             return
 
         is_deterministic = self.dotwidget.generator.is_deterministic()
@@ -304,7 +308,7 @@ class DotWindow(Gtk.Window):
 
         # Special cases
         if self.dotwidget.generator.is_empty():
-            self.info_label.set_text('Automaton is empty!')
+            self.info_label.set_text('Automaton is empty or has no start state!')
             return
 
         if not self.dotwidget.generator.is_deterministic:
@@ -376,25 +380,19 @@ class DotWindow(Gtk.Window):
         entry = Gtk.Entry()
         entry.show()
 
-        # Create a checkbox
-        check = Gtk.CheckButton(label="Final state")
-        check.show()
-
         # Append items to dialog window
         dlg.vbox.pack_end(entry, expand=True, fill=True, padding=0)
-        dlg.vbox.pack_end(check, expand=True, fill=True, padding=0)
 
         # Grab value once window is closed
         response = dlg.run()
         text = entry.get_text()
-        is_double = check.get_active()
 
         # On continue, destroy it
         dlg.destroy()
 
         # Create node if all went well
         if response == Gtk.ResponseType.OK and text:
-            self.dotwidget.generator.add_node(text, is_double)
+            self.dotwidget.generator.add_node(text)
             self.dotwidget.load_graph()
 
     def find_text(self, entry_text):
@@ -405,16 +403,6 @@ class DotWindow(Gtk.Window):
             if element.search_text(regexp):
                 found_items.append(element)
         return found_items
-
-    def textentry_changed(self, widget, entry):
-        entry_text = entry.get_text()
-        dot_widget = self.dotwidget
-        if not entry_text:
-            dot_widget.set_highlight(None, search=True)
-            return
-
-        found_items = self.find_text(entry_text)
-        dot_widget.set_highlight(found_items, search=True)
 
     def set_filter(self, filter):
         self.dotwidget.set_filter(filter)
