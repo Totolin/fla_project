@@ -330,7 +330,7 @@ class DotWindow(Gtk.Window):
         dlg.destroy()
 
         # Create node if all went well
-        if response == Gtk.ResponseType.OK and text:
+        if response == Gtk.ResponseType.OK:
             self.dotwidget.generator.add_edge(node_to, node_from, text)
             self.dotwidget.load_graph()
 

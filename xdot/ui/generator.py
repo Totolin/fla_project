@@ -48,6 +48,9 @@ class Generator:
         self.graph['nodes']['single'].append(node_name)
 
     def add_edge(self, node_from, node_to, edge_value):
+        if not edge_value:
+            edge_value = "λ"
+
         self.graph['edges'].append({
             "from": node_from,
             "to": node_to,
@@ -102,11 +105,12 @@ class Generator:
     def set_final(self, node_name):
         if node_name in self.graph['nodes']['double']:
             self.graph['nodes']['double'].remove(node_name)
+            self.graph['nodes']['single'].append(node_name)
+            return
 
         if node_name in self.graph['nodes']['single']:
             self.graph['nodes']['single'].remove(node_name)
-
-        self.graph['nodes']['double'].append(node_name)
+            self.graph['nodes']['double'].append(node_name)
 
     def check_string(self, query):
         current_state = self.graph['nodes']['start']
@@ -141,6 +145,9 @@ class Generator:
         return not self.graph['nodes']['start']
 
     def is_deterministic(self):
+        if any("λ" in edge['value'] for edge in self.graph['edges']):
+            return False
+
         all_nodes = list([self.graph['nodes']['start']] + \
                          self.graph['nodes']['single'] + \
                          self.graph['nodes']['double'])
